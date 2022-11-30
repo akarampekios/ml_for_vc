@@ -40,8 +40,11 @@ class Perceptron:
         Returns:
             class labels of X
         """
-        
-        return 
+
+        linear_output = np.dot(self.w,X)
+        y_perc = np.where(linear_output>=0, 1, -1)
+
+        return y_perc
     
     def fit(self, X, y):
         """ Training function.
@@ -64,27 +67,27 @@ class Perceptron:
         # Empty list to store how many examples were 
         # misclassified at every iteration.
         miss_classifications = []
-        
+
         # Training.
         for epoch in trange(self.epochs):
             
             # predict all items from the dataset
             predictions = self.perc(np.transpose(X, [1, 0]))
             # compare with gt
-            predictions = y - predictions
+            errors = y - predictions
 
-            if ((predictions == 0).all()):
+            if ((errors == 0).all()):
                 print(f'No errors after {epoch} epochs. Training successful!')
             else:
                 #sample one prediction at random
                 n = randint(0,n_observations-1)
                 prediction_for_update = self.perc(X[n,:])
                 # update the weights of the perceptron from the random sample
-                self.w = self.w # to be corrected by you
+                self.w = self.w + (self.lr * (y[n] - prediction_for_update)) * X[n,:] # to be corrected by you
             
             # Appending number of misclassified examples
             # at every iteration.
-            miss_classifications.append(predictions.shape[0] - np.sum(predictions==0))
+            miss_classifications.append(errors.shape[0] - np.sum(errors==0))
             
         return miss_classifications
 
@@ -98,4 +101,5 @@ class Perceptron:
         Returns:
             Class label of X
         """
-        return
+
+        return self.perc(np.transpose(X, [1, 0]))

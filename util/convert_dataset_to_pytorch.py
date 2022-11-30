@@ -29,7 +29,7 @@ class CircleSquareDataset(Dataset):
 
 def convert_dataset_to_pytorch(dataset_train, labels_train, dataset_val, label_val, batch_size=128):
     dataset_pytorch_train = CircleSquareDataset(dataset_train, labels_train)
-    dataset_pytorch_val = CircleSquareDataset(dataset_train, labels_train)
+    dataset_pytorch_val = CircleSquareDataset(dataset_val, label_val)
 
     train_dataloader = data.DataLoader(dataset_pytorch_train,
                                     shuffle=True,

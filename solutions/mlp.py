@@ -34,6 +34,8 @@ class SquareLoss(object):
             Returns the loss
         """
         return 0.5 * np.power((y - y_pred), 2)
+        #return np.sum(np.nan_to_num(-y*np.log(y_pred) - (1.0-y)*np.log(1-y_pred)))
+
 
     def delta(self, y, y_pred):
         """ Calculates the exterior derivative for the loss.
@@ -101,11 +103,14 @@ class MultiLayerPerceptron():
 
         self.activation_functions = {
                 'tanh': (lambda x: np.tanh(x)),
+                'sigmoid':(lambda x:  1.0 / (1.0 + np.exp(-x)))
                }
 
         # Derivatives of the activation functions ASSUMING that x has already been passed throught the activation function.
         self.activ_derivative = {
                 'tanh': (lambda x: 1-x**2),
+                'sigmoid': (lambda x:  (1.0 / (1.0 + np.exp(-x)))*
+                                        (1.0 - ( 1.0 / (1.0 + np.exp(-x)))))
                 }        
         
         self.input_dims = input_dim                                         # Input  Dimensions
@@ -152,7 +157,7 @@ class MultiLayerPerceptron():
             weight  = np.random.uniform(-limit, limit, (x, y))
         return weight
 
-    def backprop(self):
+    def backprop(self,y,y_pred):
         """ Implements the backpropagation.
 
         Args:
@@ -163,16 +168,36 @@ class MultiLayerPerceptron():
         """
 
         # Backpropagation phase
-        
-        # Updating the weights and bias
 
-        self.hidden_weight += self.hidden_weight # to be corrected by you
-        self.hidden_weight2 += self.hidden_weight2 # to be corrected by you
-        self.output_weight += self.output_weight # to be corrected by you
-        
-        self.hidden_bias += self.hidden_bias # to be corrected by you
-        self.hidden_bias2 += self.hidden_bias2 # to be corrected by you
-        self.output_bias += self.output_bias # to be corrected by you
+        weights = [self.hidden_weight,self.hidden_weight2,self.output_weight]
+        deltas = [(self.loss.delta(y[-1],y_pred) * self.derivative_function(y[-1]))]
+
+        for l in range(len(y) - 2, 0, -1):
+            deltas.append(deltas[-1].dot(weights[l].T)*self.derivative_function(y[l]))
+
+        deltas.reverse()
+
+        #bias = [self.hidden_bias,self.hidden_bias2,self.output_bias]
+        #deltas_bias = [(self.loss.delta(y[-1],y_pred) * self.derivative_function(y[-1]))]
+        deltas_bias = [self.derivative_function(y[-1])]
+
+        for l in range(len(y) - 2, 0, -1):
+            deltas_bias.append(self.derivative_function(y[l]))
+
+        deltas_bias.reverse()
+
+        # Updating the weights and bias
+        for i in range(len(deltas)):
+            y[i] = np.atleast_2d(y[i])
+            deltas[i] = np.atleast_2d(deltas[i])
+
+        self.hidden_weight  += self.lr*y[0].T.dot(deltas[0]) # to be corrected by you
+        self.hidden_weight2 += self.lr*y[1].T.dot(deltas[1]) # to be corrected by you
+        self.output_weight  += self.lr*y[2].T.dot(deltas[2])  # to be corrected by you
+
+        self.hidden_bias  += self.lr*deltas_bias[0] # to be corrected by you
+        self.hidden_bias2 += self.lr*deltas_bias[1] # to be corrected by you
+        self.output_bias  += self.lr*deltas_bias[2] # to be corrected by you
         
     def show_err_graphic(self,list_errors,list_indices_epochs):
         """ Loss plotter.
@@ -206,19 +231,22 @@ class MultiLayerPerceptron():
 
         'Forward Propagation'
         # Pass through first hidden fully-connected layer
-
+        forward_1 = self.activation_function(np.dot(X,self.hidden_weight)+self.hidden_bias)
         # Pass through second hidden fully-connected layer
-
+        forward_2 = self.activation_function(np.dot(forward_1,self.hidden_weight2)+self.hidden_bias2)
         # Pass through output fully-connected layer
-    
+        predictions_raw = self.activation_function(np.dot(forward_2,self.output_weight)+self.output_bias)
+   
 
         # EXAMPLE:
         # predictions_raw = [[0.47667593] [0.47190604] [0.52146905] [0.48481489] [0.5378639 ]]
         # predictions = predictions_raw > 0.5
         # e.g. predictions = [False False True False True True]
+        #y = np.atleast_2d(y)
+        accuracy = self.loss.acc(np.atleast_2d(y).T,predictions_raw.ravel())
         
-        accuracy = self.loss.acc(predictions_raw, y)
-        
+        predictions = predictions_raw > 0.5
+
         array_score = []
         for i in range(len(predictions)):
             y_pred = predictions[i]
@@ -250,7 +278,7 @@ class MultiLayerPerceptron():
 
         # Normalize Dataset
         X = (X - np.min(X)) / (np.max(X) - np.min(X))
-        
+
         pbar = trange(self.epochs)
         for current_epoch in pbar:
             loss = 0
@@ -258,24 +286,24 @@ class MultiLayerPerceptron():
                 # Stage 1 - Forward Propagation
 
                 # Pass through hidden fully-connected layer
-
-                forward_1 = 0 # to be corrected by you
                 
+                forward_1 = self.activation_function(np.dot(inputs,self.hidden_weight)+self.hidden_bias)
+
                 # Pass through hidden fully-connected layer 2
 
-                forward_2 = forward_1 # to be corrected by you
+                forward_2 = self.activation_function(np.dot(forward_1,self.hidden_weight2)+self.hidden_bias2) # to be corrected by you
                 
                 # Pass through output fully-connected layer
 
-                forward_3 = forward_2 # to be corrected by you
-                
+                forward_3 = self.activation_function(np.dot(forward_2,self.output_weight)+self.output_bias) # to be corrected by you
+
                 # Calculate loss
 
-                self.loss(forward_3, y) # to be corrected by you
+                loss += self.loss.loss(y[idx],forward_3) # to be corrected by you
                 
                 # Stage 2 - Backpropagation to update weights
-
-                self.backprop() # to be corrected by you
+                passes = [inputs,forward_1,forward_2,forward_3]
+                self.backprop(passes,y[idx]) # to be corrected by you
                 
             pbar.set_description("Epoch Error: %s" % str(loss/X.shape[0]))
             self.list_errors.append(loss/X.shape[0])
